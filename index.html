@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>GrowEnv — Environment Monitor</title>
-<link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -25,8 +25,8 @@
     --text:      #e8efe9;
     --muted:     #6b7d72;
     --muted2:    #4a5a50;
-    --font-head: 'Syne', sans-serif;
-    --font-mono: 'DM Mono', monospace;
+    --font-head: 'Space Grotesk', sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
   }
 
   html, body { height: 100%; }
@@ -145,10 +145,12 @@
     border-radius: 4px;
     cursor: pointer;
     letter-spacing: 0.04em;
-    transition: color 0.15s, border-color 0.15s;
+    transition: color 0.15s, border-color 0.15s, background 0.15s;
   }
 
   .refresh-btn:hover { color: var(--green); border-color: var(--green); }
+  .refresh-btn:active { background: rgba(74,222,128,0.1); }
+  .refresh-btn.spinning { pointer-events: none; opacity: 0.6; }
 
   .last-update {
     font-size: 11px;
@@ -205,10 +207,10 @@
     padding: 18px 20px;
     position: relative;
     overflow: hidden;
-    transition: border-color 0.2s;
+    transition: border-color 0.2s, transform 0.2s;
   }
 
-  .metric:hover { border-color: var(--border2); }
+  .metric:hover { border-color: var(--border2); transform: translateY(-1px); }
 
   .metric::after {
     content: '';
@@ -263,6 +265,8 @@
     align-items: center;
     justify-content: space-between;
     margin-bottom: 16px;
+    flex-wrap: wrap;
+    gap: 8px;
   }
 
   .chart-title {
@@ -352,11 +356,16 @@
     border-bottom: 1px solid var(--border);
     color: var(--text);
     font-family: var(--font-mono);
+    transition: background 0.15s;
   }
 
   .readings-table tr:last-child td { border-bottom: none; }
 
   .readings-table tr:hover td { background: var(--surface2); }
+
+  /* Newest reading highlight */
+  .readings-table tr.newest td { background: rgba(74,222,128,0.04); }
+  .readings-table tr.newest:hover td { background: rgba(74,222,128,0.08); }
 
   .temp-badge {
     display: inline-block;
@@ -365,6 +374,7 @@
     padding: 2px 8px;
     border-radius: 3px;
     font-size: 12px;
+    transition: background 0.15s;
   }
 
   .hum-badge {
@@ -374,7 +384,11 @@
     padding: 2px 8px;
     border-radius: 3px;
     font-size: 12px;
+    transition: background 0.15s;
   }
+
+  .readings-table tr:hover .temp-badge { background: rgba(251,191,36,0.2); }
+  .readings-table tr:hover .hum-badge { background: rgba(45,212,191,0.2); }
 
   .id-badge {
     color: var(--muted);
@@ -416,7 +430,7 @@
     letter-spacing: 0.04em;
   }
 
-  footer a { color: var(--muted); text-decoration: none; }
+  footer a { color: var(--muted); text-decoration: none; transition: color 0.15s; }
   footer a:hover { color: var(--green); }
 
   /* ── responsive ── */
@@ -426,14 +440,17 @@
     .chart-wrap { height: 220px; }
     .metric-value { font-size: 26px; }
     .metric-value.range { font-size: 18px; }
+    .chart-header { flex-direction: column; align-items: flex-start; }
   }
 
   @media (max-width: 420px) {
     .metrics { grid-template-columns: 1fr 1fr; }
     header { padding: 0 16px; }
     .last-update { display: none; }
+    .readings-table th, .readings-table td { padding: 8px 12px; font-size: 11px; }
   }
 </style>
+<base target="_blank">
 </head>
 <body>
 <div class="shell">
@@ -454,7 +471,7 @@
         <div class="status-dot" id="statusDot"></div>
         <span id="statusText">connecting</span>
       </div>
-      <button class="refresh-btn" onclick="loadData()">↺ refresh</button>
+      <button class="refresh-btn" id="refreshBtn" onclick="loadData()">↺ refresh</button>
     </div>
   </header>
 
@@ -535,37 +552,65 @@
 
 <script>
 const API = 'https://sparkling-poetry-f04f.aransmithson.workers.dev/readings';
+const TABLE_LIMIT = 10;  // Only show last 10 readings
 let chart = null;
 
-function fmt(n, dec = 1) { return Number(n).toFixed(dec); }
+function fmt(n, dec = 1) {
+  if (n === null || n === undefined || isNaN(n)) return '—';
+  return Number(n).toFixed(dec);
+}
 
 function fmtTime(ts) {
-  const d = new Date(ts.replace(' ', 'T') + 'Z');
-  return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  if (!ts) return '—';
+  try {
+    const d = new Date(ts.replace(' ', 'T') + 'Z');
+    if (isNaN(d.getTime())) return ts;
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  } catch { return ts; }
 }
 
 function fmtDate(ts) {
-  const d = new Date(ts.replace(' ', 'T') + 'Z');
-  return d.toLocaleDateString([], { day: '2-digit', month: 'short' }) + ' ' +
-         d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  if (!ts) return '—';
+  try {
+    const d = new Date(ts.replace(' ', 'T') + 'Z');
+    if (isNaN(d.getTime())) return ts;
+    return d.toLocaleDateString([], { day: '2-digit', month: 'short' }) + ' ' +
+           d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  } catch { return ts; }
 }
 
-function updateStatus(ok) {
+function fmtRelative(ts) {
+  if (!ts) return '';
+  try {
+    const d = new Date(ts.replace(' ', 'T') + 'Z');
+    if (isNaN(d.getTime())) return '';
+    const diff = Math.floor((Date.now() - d.getTime()) / 1000);
+    if (diff < 60) return 'just now';
+    if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
+    if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
+    return Math.floor(diff / 86400) + 'd ago';
+  } catch { return ''; }
+}
+
+function updateStatus(ok, msg) {
   const dot  = document.getElementById('statusDot');
   const text = document.getElementById('statusText');
   if (ok) {
     dot.className  = 'status-dot';
-    text.textContent = 'live';
+    text.textContent = msg || 'live';
   } else {
     dot.className  = 'status-dot offline';
-    text.textContent = 'offline';
+    text.textContent = msg || 'offline';
   }
 }
 
 function renderMetrics(data) {
-  const temps = data.map(d => d.temperature);
-  const hums  = data.map(d => d.humidity);
-  const avg   = arr => arr.reduce((a, b) => a + b, 0) / arr.length;
+  const temps = data.map(d => d.temperature).filter(v => v !== null && v !== undefined && !isNaN(v));
+  const hums  = data.map(d => d.humidity).filter(v => v !== null && v !== undefined && !isNaN(v));
+
+  if (!temps.length || !hums.length) return;
+
+  const avg = arr => arr.reduce((a, b) => a + b, 0) / arr.length;
 
   document.getElementById('avgTemp').textContent    = fmt(avg(temps)) + '°';
   document.getElementById('avgHum').textContent     = fmt(avg(hums), 0) + '%';
@@ -574,7 +619,9 @@ function renderMetrics(data) {
   document.getElementById('deviceId').textContent   = data[0]?.device_id ?? '—';
 
   const latest = data[data.length - 1];
-  document.getElementById('lastUpdate').textContent = 'updated ' + fmtTime(latest.timestamp);
+  if (latest?.timestamp) {
+    document.getElementById('lastUpdate').textContent = fmtTime(latest.timestamp) + ' · ' + fmtRelative(latest.timestamp);
+  }
 }
 
 function renderChart(data) {
@@ -644,7 +691,7 @@ function renderChart(data) {
             autoSkip: true,
             maxTicksLimit: 10,
             maxRotation: 40,
-            font: { size: 10, family: "'DM Mono', monospace" },
+            font: { size: 10, family: "'JetBrains Mono', monospace" },
             color: '#4a5a50'
           },
           grid: { color: 'rgba(255,255,255,0.04)' }
@@ -654,7 +701,7 @@ function renderChart(data) {
           position: 'left',
           ticks: {
             callback: v => v.toFixed(1) + '°',
-            font: { size: 10, family: "'DM Mono', monospace" },
+            font: { size: 10, family: "'JetBrains Mono', monospace" },
             color: '#fbbf24'
           },
           grid: { color: 'rgba(255,255,255,0.04)' },
@@ -665,7 +712,7 @@ function renderChart(data) {
           position: 'right',
           ticks: {
             callback: v => v + '%',
-            font: { size: 10, family: "'DM Mono', monospace" },
+            font: { size: 10, family: "'JetBrains Mono', monospace" },
             color: '#2dd4bf'
           },
           grid: { drawOnChartArea: false },
@@ -677,17 +724,18 @@ function renderChart(data) {
 }
 
 function renderTable(data) {
-  const sorted = [...data].sort((a, b) => b.id - a.id).slice(0, 50);
+  // Sort by newest first, take only the last TABLE_LIMIT (10) readings
+  const sorted = [...data].sort((a, b) => b.id - a.id).slice(0, TABLE_LIMIT);
   const wrap = document.getElementById('tableWrap');
-  document.getElementById('tableCount').textContent = sorted.length + ' rows';
+  document.getElementById('tableCount').textContent = sorted.length + ' / ' + data.length + ' rows';
 
-  const rows = sorted.map(d => `
-    <tr>
+  const rows = sorted.map((d, i) => `
+    <tr class="${i === 0 ? 'newest' : ''}">
       <td class="id-badge">#${d.id}</td>
-      <td>${d.device_id}</td>
+      <td>${d.device_id || '—'}</td>
       <td><span class="temp-badge">${fmt(d.temperature)}°C</span></td>
       <td><span class="hum-badge">${fmt(d.humidity, 0)}%</span></td>
-      <td style="color: var(--muted);">${fmtDate(d.timestamp)}</td>
+      <td style="color: var(--muted);">${fmtDate(d.timestamp)} <span style="font-size:10px;color:var(--muted2)">${fmtRelative(d.timestamp)}</span></td>
     </tr>
   `).join('');
 
@@ -708,6 +756,10 @@ function renderTable(data) {
 }
 
 async function loadData() {
+  const btn = document.getElementById('refreshBtn');
+  btn.classList.add('spinning');
+  btn.textContent = '⟳ loading…';
+
   document.getElementById('chartLoader').style.display = 'flex';
   document.getElementById('chartLoader').style.flexDirection = 'column';
   document.getElementById('tableWrap').innerHTML = `
@@ -717,10 +769,15 @@ async function loadData() {
     </div>`;
 
   try {
-    const res  = await fetch(API);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+    const res  = await fetch(API, { signal: controller.signal });
+    clearTimeout(timeout);
+
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const data = await res.json();
 
+    if (!Array.isArray(data)) throw new Error('invalid data format');
     if (!data.length) throw new Error('no data returned');
 
     updateStatus(true);
@@ -728,12 +785,16 @@ async function loadData() {
     renderChart(data);
     renderTable(data);
   } catch (err) {
-    updateStatus(false);
+    const msg = err.name === 'AbortError' ? 'request timed out' : err.message;
+    updateStatus(false, msg);
     document.getElementById('chartLoader').innerHTML = `
-      <span class="error-msg">⚠ ${err.message}</span>
+      <span class="error-msg">⚠ ${msg}</span>
       <span style="color:var(--muted2)">check worker is running and CORS is enabled</span>`;
     document.getElementById('tableWrap').innerHTML = `
       <div class="state-overlay error-msg">failed to load readings</div>`;
+  } finally {
+    btn.classList.remove('spinning');
+    btn.textContent = '↺ refresh';
   }
 }
 
