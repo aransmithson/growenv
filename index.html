@@ -2,12 +2,12 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>GrowEnv — Environment Monitor</title>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <style>
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 
   :root {
     --bg:        #0b0f0e;
@@ -25,8 +25,8 @@
     --text:      #e8efe9;
     --muted:     #6b7d72;
     --muted2:    #4a5a50;
-    --font-head: 'Space Grotesk', sans-serif;
-    --font-mono: 'JetBrains Mono', monospace;
+    --font-head: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --font-mono: 'JetBrains Mono', 'SF Mono', Monaco, monospace;
   }
 
   html, body { height: 100%; }
@@ -38,6 +38,8 @@
     font-size: 13px;
     line-height: 1.6;
     overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
   /* ── scanline texture overlay ── */
@@ -59,7 +61,7 @@
   /* ── layout ── */
   .shell {
     display: grid;
-    grid-template-rows: 56px 1fr;
+    grid-template-rows: auto 1fr;
     min-height: 100vh;
   }
 
@@ -68,18 +70,21 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0 28px;
+    padding: 12px 16px;
     border-bottom: 1px solid var(--border);
     background: var(--surface);
     position: sticky;
     top: 0;
     z-index: 10;
+    gap: 12px;
   }
 
   .logo {
     display: flex;
     align-items: center;
     gap: 10px;
+    min-width: 0;
+    flex-shrink: 0;
   }
 
   .logo-mark {
@@ -90,6 +95,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
+    flex-shrink: 0;
   }
 
   .logo-mark svg { display: block; }
@@ -100,6 +106,7 @@
     font-weight: 800;
     letter-spacing: -0.02em;
     color: var(--text);
+    white-space: nowrap;
   }
 
   .logo-name span { color: var(--green); }
@@ -107,7 +114,8 @@
   .header-right {
     display: flex;
     align-items: center;
-    gap: 20px;
+    gap: 12px;
+    flex-shrink: 0;
   }
 
   .status-pill {
@@ -117,6 +125,7 @@
     font-size: 11px;
     color: var(--muted);
     letter-spacing: 0.04em;
+    white-space: nowrap;
   }
 
   .status-dot {
@@ -126,6 +135,7 @@
     background: var(--green);
     box-shadow: 0 0 6px var(--green);
     animation: pulse 2s ease-in-out infinite;
+    flex-shrink: 0;
   }
 
   .status-dot.offline { background: var(--red); box-shadow: 0 0 6px var(--red); animation: none; }
@@ -141,29 +151,35 @@
     color: var(--muted);
     font-family: var(--font-mono);
     font-size: 11px;
-    padding: 5px 12px;
-    border-radius: 4px;
+    padding: 6px 14px;
+    border-radius: 6px;
     cursor: pointer;
     letter-spacing: 0.04em;
     transition: color 0.15s, border-color 0.15s, background 0.15s;
+    white-space: nowrap;
+    min-height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .refresh-btn:hover { color: var(--green); border-color: var(--green); }
-  .refresh-btn:active { background: rgba(74,222,128,0.1); }
+  .refresh-btn:active { background: rgba(74,222,128,0.1); transform: scale(0.97); }
   .refresh-btn.spinning { pointer-events: none; opacity: 0.6; }
 
   .last-update {
     font-size: 11px;
     color: var(--muted2);
     letter-spacing: 0.02em;
+    white-space: nowrap;
   }
 
   /* ── main ── */
   main {
-    padding: 28px;
+    padding: 16px;
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 16px;
     max-width: 1200px;
     width: 100%;
     margin: 0 auto;
@@ -174,6 +190,7 @@
     display: flex;
     align-items: center;
     gap: 10px;
+    flex-wrap: wrap;
   }
 
   .device-label {
@@ -191,26 +208,27 @@
     font-size: 12px;
     color: var(--green);
     font-family: var(--font-mono);
+    word-break: break-all;
   }
 
   /* ── metrics grid ── */
   .metrics {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 14px;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
   }
 
   .metric {
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: 10px;
-    padding: 18px 20px;
+    padding: 14px 16px;
     position: relative;
     overflow: hidden;
     transition: border-color 0.2s, transform 0.2s;
   }
 
-  .metric:hover { border-color: var(--border2); transform: translateY(-1px); }
+  .metric:hover { border-color: var(--border2); }
 
   .metric::after {
     content: '';
@@ -230,12 +248,12 @@
     letter-spacing: 0.1em;
     text-transform: uppercase;
     color: var(--muted);
-    margin-bottom: 10px;
+    margin-bottom: 8px;
   }
 
   .metric-value {
     font-family: var(--font-head);
-    font-size: 32px;
+    font-size: 28px;
     font-weight: 700;
     line-height: 1;
     letter-spacing: -0.02em;
@@ -243,13 +261,13 @@
 
   .metric-value.temp  { color: var(--amber); }
   .metric-value.hum   { color: var(--teal); }
-  .metric-value.range { color: var(--text); font-size: 22px; }
+  .metric-value.range { color: var(--text); font-size: 18px; }
   .metric-value.count { color: var(--green); }
 
   .metric-sub {
     font-size: 11px;
     color: var(--muted);
-    margin-top: 6px;
+    margin-top: 5px;
   }
 
   /* ── chart card ── */
@@ -257,14 +275,14 @@
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: 10px;
-    padding: 20px 24px 16px;
+    padding: 16px 16px 12px;
   }
 
   .chart-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 16px;
+    margin-bottom: 12px;
     flex-wrap: wrap;
     gap: 8px;
   }
@@ -279,7 +297,7 @@
 
   .chart-legend {
     display: flex;
-    gap: 18px;
+    gap: 14px;
     font-size: 11px;
     color: var(--muted);
   }
@@ -303,7 +321,7 @@
   .chart-wrap {
     position: relative;
     width: 100%;
-    height: 280px;
+    height: 220px;
   }
 
   /* ── readings table ── */
@@ -315,7 +333,7 @@
   }
 
   .table-header {
-    padding: 16px 20px;
+    padding: 14px 16px;
     border-bottom: 1px solid var(--border);
     font-family: var(--font-head);
     font-size: 13px;
@@ -324,6 +342,8 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 6px;
   }
 
   .table-count {
@@ -340,7 +360,7 @@
   }
 
   .readings-table th {
-    padding: 8px 20px;
+    padding: 8px 12px;
     text-align: left;
     font-size: 10px;
     letter-spacing: 0.08em;
@@ -352,7 +372,7 @@
   }
 
   .readings-table td {
-    padding: 9px 20px;
+    padding: 8px 12px;
     border-bottom: 1px solid var(--border);
     color: var(--text);
     font-family: var(--font-mono);
@@ -401,7 +421,7 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 60px 20px;
+    padding: 48px 20px;
     color: var(--muted);
     gap: 12px;
     font-size: 12px;
@@ -428,28 +448,65 @@
     color: var(--muted2);
     border-top: 1px solid var(--border);
     letter-spacing: 0.04em;
+    line-height: 1.8;
   }
 
   footer a { color: var(--muted); text-decoration: none; transition: color 0.15s; }
   footer a:hover { color: var(--green); }
 
-  /* ── responsive ── */
-  @media (max-width: 700px) {
-    main { padding: 16px; gap: 14px; }
-    .metrics { grid-template-columns: repeat(2, 1fr); }
-    .chart-wrap { height: 220px; }
-    .metric-value { font-size: 26px; }
-    .metric-value.range { font-size: 18px; }
-    .chart-header { flex-direction: column; align-items: flex-start; }
+  /* ═══════════════════════════════════════════
+     TABLET & UP (min-width: 640px)
+     ═══════════════════════════════════════════ */
+  @media (min-width: 640px) {
+    header { padding: 0 24px; height: 56px; }
+    main { padding: 24px; gap: 20px; }
+    .metrics { grid-template-columns: repeat(4, 1fr); gap: 14px; }
+    .metric { padding: 18px 20px; }
+    .metric-value { font-size: 32px; }
+    .metric-value.range { font-size: 22px; }
+    .chart-card { padding: 20px 24px 16px; }
+    .chart-wrap { height: 280px; }
+    .table-header { padding: 16px 20px; }
+    .readings-table th, .readings-table td { padding: 9px 20px; }
+    .last-update { display: inline; }
   }
 
-  @media (max-width: 420px) {
-    .metrics { grid-template-columns: 1fr 1fr; }
-    header { padding: 0 16px; }
-    .last-update { display: none; }
-    .readings-table th, .readings-table td { padding: 8px 12px; font-size: 11px; }
+  /* ═══════════════════════════════════════════
+     DESKTOP (min-width: 900px)
+     ═══════════════════════════════════════════ */
+  @media (min-width: 900px) {
+    header { padding: 0 28px; }
+    main { padding: 28px; }
+    .header-right { gap: 20px; }
+    .refresh-btn { padding: 5px 12px; border-radius: 4px; }
+  }
+
+  /* ═══════════════════════════════════════════
+     SMALL PHONES (max-width: 380px)
+     ═══════════════════════════════════════════ */
+  @media (max-width: 380px) {
+    header { padding: 10px 12px; }
+    .logo-name { font-size: 15px; }
+    .refresh-btn { padding: 5px 10px; font-size: 10px; }
+    .status-pill { font-size: 10px; }
+    .metric-value { font-size: 24px; }
+    .metric-value.range { font-size: 16px; }
+    .chart-title { font-size: 12px; }
+    .readings-table th, .readings-table td { padding: 6px 10px; font-size: 11px; }
+    .chart-legend { gap: 10px; font-size: 10px; }
+  }
+
+  /* ═══════════════════════════════════════════
+     LANDSCAPE PHONES
+     ═══════════════════════════════════════════ */
+  @media (max-height: 450px) and (orientation: landscape) {
+    .metrics { grid-template-columns: repeat(4, 1fr); }
+    .chart-wrap { height: 160px; }
+    .metric { padding: 10px 12px; }
+    .metric-value { font-size: 22px; }
   }
 </style>
+<base target="_blank">
 <base target="_blank">
 </head>
 <body>
@@ -552,7 +609,7 @@
 
 <script>
 const API = 'https://sparkling-poetry-f04f.aransmithson.workers.dev/readings';
-const TABLE_LIMIT = 10;  // Only show last 10 readings
+const TABLE_LIMIT = 10;
 let chart = null;
 
 function fmt(n, dec = 1) {
@@ -612,9 +669,9 @@ function renderMetrics(data) {
 
   const avg = arr => arr.reduce((a, b) => a + b, 0) / arr.length;
 
-  document.getElementById('avgTemp').textContent    = fmt(avg(temps)) + '°';
+  document.getElementById('avgTemp').textContent    = fmt(avg(temps), 0) + '°';
   document.getElementById('avgHum').textContent     = fmt(avg(hums), 0) + '%';
-  document.getElementById('tempRange').textContent  = fmt(Math.min(...temps)) + ' – ' + fmt(Math.max(...temps)) + '°';
+  document.getElementById('tempRange').textContent  = fmt(Math.min(...temps), 0) + ' – ' + fmt(Math.max(...temps), 0) + '°';
   document.getElementById('readingCount').textContent = data.length;
   document.getElementById('deviceId').textContent   = data[0]?.device_id ?? '—';
 
@@ -680,7 +737,7 @@ function renderChart(data) {
           bodyColor: '#e8efe9',
           padding: 10,
           callbacks: {
-            label: ctx => ctx.dataset.label + ': ' + fmt(ctx.parsed.y) +
+            label: ctx => ctx.dataset.label + ': ' + fmt(ctx.parsed.y, 0) +
               (ctx.datasetIndex === 0 ? '°C' : '%')
           }
         }
@@ -689,7 +746,7 @@ function renderChart(data) {
         x: {
           ticks: {
             autoSkip: true,
-            maxTicksLimit: 10,
+            maxTicksLimit: 8,
             maxRotation: 40,
             font: { size: 10, family: "'JetBrains Mono', monospace" },
             color: '#4a5a50'
@@ -700,7 +757,7 @@ function renderChart(data) {
           type: 'linear',
           position: 'left',
           ticks: {
-            callback: v => v.toFixed(1) + '°',
+            callback: v => (Math.round(v * 2) / 2).toFixed(1) + '°',
             font: { size: 10, family: "'JetBrains Mono', monospace" },
             color: '#fbbf24'
           },
@@ -711,7 +768,7 @@ function renderChart(data) {
           type: 'linear',
           position: 'right',
           ticks: {
-            callback: v => v + '%',
+            callback: v => Math.round(v) + '%',
             font: { size: 10, family: "'JetBrains Mono', monospace" },
             color: '#2dd4bf'
           },
@@ -724,7 +781,6 @@ function renderChart(data) {
 }
 
 function renderTable(data) {
-  // Sort by newest first, take only the last TABLE_LIMIT (10) readings
   const sorted = [...data].sort((a, b) => b.id - a.id).slice(0, TABLE_LIMIT);
   const wrap = document.getElementById('tableWrap');
   document.getElementById('tableCount').textContent = sorted.length + ' / ' + data.length + ' rows';
@@ -733,7 +789,7 @@ function renderTable(data) {
     <tr class="${i === 0 ? 'newest' : ''}">
       <td class="id-badge">#${d.id}</td>
       <td>${d.device_id || '—'}</td>
-      <td><span class="temp-badge">${fmt(d.temperature)}°C</span></td>
+      <td><span class="temp-badge">${fmt(d.temperature, 0)}°C</span></td>
       <td><span class="hum-badge">${fmt(d.humidity, 0)}%</span></td>
       <td style="color: var(--muted);">${fmtDate(d.timestamp)} <span style="font-size:10px;color:var(--muted2)">${fmtRelative(d.timestamp)}</span></td>
     </tr>
