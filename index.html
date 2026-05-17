@@ -42,7 +42,6 @@
     -moz-osx-font-smoothing: grayscale;
   }
 
-  /* ── scanline texture overlay ── */
   body::before {
     content: '';
     position: fixed;
@@ -58,14 +57,12 @@
     z-index: 999;
   }
 
-  /* ── layout ── */
   .shell {
     display: grid;
     grid-template-rows: auto 1fr;
     min-height: 100vh;
   }
 
-  /* ── header ── */
   header {
     display: flex;
     align-items: center;
@@ -174,7 +171,6 @@
     white-space: nowrap;
   }
 
-  /* ── main ── */
   main {
     padding: 16px;
     display: flex;
@@ -185,7 +181,6 @@
     margin: 0 auto;
   }
 
-  /* ── device selector ── */
   .device-bar {
     display: flex;
     align-items: center;
@@ -211,7 +206,6 @@
     word-break: break-all;
   }
 
-  /* ── metrics grid ── */
   .metrics {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -270,7 +264,6 @@
     margin-top: 5px;
   }
 
-  /* ── chart card ── */
   .chart-card {
     background: var(--surface);
     border: 1px solid var(--border);
@@ -318,7 +311,6 @@
     background: repeating-linear-gradient(90deg, var(--teal) 0, var(--teal) 4px, transparent 4px, transparent 8px);
   }
 
-  /* ── time range controls ── */
   .chart-controls {
     display: flex;
     align-items: center;
@@ -371,7 +363,6 @@
     height: 220px;
   }
 
-  /* ── readings table ── */
   .table-card {
     background: var(--surface);
     border: 1px solid var(--border);
@@ -429,7 +420,6 @@
   .readings-table tr:last-child td { border-bottom: none; }
   .readings-table tr:hover td { background: var(--surface2); }
 
-  /* Newest reading highlight */
   .readings-table tr.newest td { background: rgba(74,222,128,0.04); }
   .readings-table tr.newest:hover td { background: rgba(74,222,128,0.08); }
 
@@ -461,7 +451,6 @@
     font-size: 11px;
   }
 
-  /* ── loading / error ── */
   .state-overlay {
     display: flex;
     flex-direction: column;
@@ -486,7 +475,6 @@
 
   .error-msg { color: var(--red); }
 
-  /* ── footer ── */
   footer {
     text-align: center;
     padding: 16px;
@@ -500,9 +488,6 @@
   footer a { color: var(--muted); text-decoration: none; transition: color 0.15s; }
   footer a:hover { color: var(--green); }
 
-  /* ═══════════════════════════════════════════
-     TABLET & UP (min-width: 640px)
-     ═══════════════════════════════════════════ */
   @media (min-width: 640px) {
     header { padding: 0 24px; height: 56px; }
     main { padding: 24px; gap: 20px; }
@@ -517,9 +502,6 @@
     .last-update { display: inline; }
   }
 
-  /* ═══════════════════════════════════════════
-     DESKTOP (min-width: 900px)
-     ═══════════════════════════════════════════ */
   @media (min-width: 900px) {
     header { padding: 0 28px; }
     main { padding: 28px; }
@@ -527,9 +509,6 @@
     .refresh-btn { padding: 5px 12px; border-radius: 4px; }
   }
 
-  /* ═══════════════════════════════════════════
-     SMALL PHONES (max-width: 380px)
-     ═══════════════════════════════════════════ */
   @media (max-width: 380px) {
     header { padding: 10px 12px; }
     .logo-name { font-size: 15px; }
@@ -543,9 +522,6 @@
     .range-btn { padding: 4px 7px; font-size: 10px; }
   }
 
-  /* ═══════════════════════════════════════════
-     LANDSCAPE PHONES
-     ═══════════════════════════════════════════ */
   @media (max-height: 450px) and (orientation: landscape) {
     .metrics { grid-template-columns: repeat(4, 1fr); }
     .chart-wrap { height: 160px; }
@@ -623,13 +599,12 @@
         </div>
       </div>
 
-      <!-- time range controls -->
       <div class="chart-controls">
         <div class="range-group" id="rangeGroup">
           <button class="range-btn" data-hours="1"  onclick="setRange(1)">1H</button>
           <button class="range-btn" data-hours="6"  onclick="setRange(6)">6H</button>
           <button class="range-btn" data-hours="24" onclick="setRange(24)">24H</button>
-          <button class="range-btn active" data-hours="0"   onclick="setRange(0)">ALL</button>
+          <button class="range-btn active" data-hours="0" onclick="setRange(0)">ALL</button>
         </div>
         <span class="chart-info" id="chartInfo">—</span>
       </div>
@@ -667,11 +642,12 @@
 
 <script>
 const API        = 'https://sparkling-poetry-f04f.aransmithson.workers.dev/readings';
+const API_FULL   = API + '?limit=5000';   // ← fetch everything; Worker must honour this param
 const TABLE_LIMIT = 10;
 
 let chart       = null;
 let allData     = [];
-let activeRange = 0;   // 0 = all, otherwise hours
+let activeRange = 0;
 
 // ── helpers ────────────────────────────────────────────────────────────────
 
@@ -715,14 +691,14 @@ function fmtRelative(ts) {
 function updateStatus(ok, msg) {
   const dot  = document.getElementById('statusDot');
   const text = document.getElementById('statusText');
-  dot.className       = ok ? 'status-dot' : 'status-dot offline';
-  text.textContent    = msg || (ok ? 'live' : 'offline');
+  dot.className    = ok ? 'status-dot' : 'status-dot offline';
+  text.textContent = msg || (ok ? 'live' : 'offline');
 }
 
 // ── time range filter ───────────────────────────────────────────────────────
 
 function filterByRange(data, hours) {
-  if (!hours) return data;           // 0 = all
+  if (!hours) return data;
   const cutoff = Date.now() - hours * 60 * 60 * 1000;
   return data.filter(d => {
     try {
@@ -733,7 +709,6 @@ function filterByRange(data, hours) {
 
 function setRange(hours) {
   activeRange = hours;
-  // update button styles
   document.querySelectorAll('.range-btn').forEach(btn => {
     btn.classList.toggle('active', Number(btn.dataset.hours) === hours);
   });
@@ -767,7 +742,6 @@ function renderChart(data) {
   const sorted   = [...filtered].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
   const labels   = sorted.map(d => fmtTime(d.timestamp));
 
-  // update info label
   const infoEl = document.getElementById('chartInfo');
   if (!sorted.length) {
     infoEl.textContent = 'no data in range';
@@ -873,7 +847,7 @@ function renderChart(data) {
 }
 
 function renderTable(data) {
-  // always show the 10 most recent by id, regardless of chart range
+  // always show 10 most recent regardless of chart range
   const sorted = [...data].sort((a, b) => b.id - a.id).slice(0, TABLE_LIMIT);
   const wrap   = document.getElementById('tableWrap');
   document.getElementById('tableCount').textContent = `last ${sorted.length}`;
@@ -923,7 +897,7 @@ async function loadData() {
   try {
     const controller = new AbortController();
     const timeout    = setTimeout(() => controller.abort(), 10000);
-    const res        = await fetch(API, { signal: controller.signal });
+    const res        = await fetch(API_FULL, { signal: controller.signal });  // ← uses API_FULL
     clearTimeout(timeout);
 
     if (!res.ok) throw new Error('HTTP ' + res.status);
@@ -937,7 +911,7 @@ async function loadData() {
     updateStatus(true);
     renderMetrics(data);
     renderChart(data);
-    renderTable(data);
+    renderTable(data);   // table always shows last 10 regardless
 
   } catch (err) {
     const msg = err.name === 'AbortError' ? 'request timed out' : err.message;
